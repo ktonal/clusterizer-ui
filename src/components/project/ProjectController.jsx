@@ -25,9 +25,7 @@ export function ProjectController({project, setProject}) {
         trackPromise(
             new ClusterizerApi(token).createProject(p)
                 .then((resp, err) => {
-                    const project = resp.data;
-                    setProject(project);
-                    setProjects([project, ...projects]);
+                    let project = resp.data;
                     let formData = new FormData();
                     formData.append("file", file);
                     NotificationManager.info("added project");
@@ -35,6 +33,9 @@ export function ProjectController({project, setProject}) {
                         new ClusterizerApi(token).createInputFile(project.id, formData)
                             .then((resp) => {
                                 NotificationManager.info("added file to project");
+                                project.file_info = resp.data;
+                                setProject(project);
+                                setProjects([project, ...projects]);
                                 return resp.data;
                             })
                             .catch(err => errorHandler(err)), "new-file");

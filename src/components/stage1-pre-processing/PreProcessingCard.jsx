@@ -1,6 +1,6 @@
 import {Button, Card} from "react-bootstrap";
 import React from "react";
-import { FaTrash } from "react-icons/fa";
+import { FiTrash } from "react-icons/fi";
 
 export function PreProcessingCard({preProcessing, selectPreProcessing, selectedId, deletePreProcessing}) {
     return (
@@ -20,7 +20,7 @@ export function PreProcessingCard({preProcessing, selectPreProcessing, selectedI
                     <Button variant={"outline-danger"}
                             style={{position: "relative"}}
                             onClick={(e) => {deletePreProcessing(preProcessing); e.stopPropagation()}}
-                    ><FaTrash/></Button>
+                    ><FiTrash/></Button>
                 </Card.Body>
             </Card>
         </div>

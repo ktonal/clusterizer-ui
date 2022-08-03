@@ -4,7 +4,10 @@ import {trackPromise} from "react-promise-tracker";
 import {AuthContext} from "../../Auth";
 import {NotificationManager} from "react-notifications";
 
-export function AnalysisController({analysis, setAnalysis, project, preProcessing, splits, setSplits}) {
+export function AnalysisController({
+                                       analysis, setAnalysis, project, preProcessing,
+                                       split, setSplit, splits, setSplits, setAnalysisResult,
+                                   }) {
     const {token} = useContext(AuthContext);
     const [allAnalysis, setAllAnalysis] = useState([]);
 
@@ -28,11 +31,20 @@ export function AnalysisController({analysis, setAnalysis, project, preProcessin
     }, [analysis, allAnalysis]);
 
     useEffect(() => {
+        // UPDATE analysis DEPENDENCIES
         setSplits(analysis.splits !== null ? analysis.splits : []);
+
+        if (analysis.hasOwnProperty("result") && analysis.result !== null) {
+            new ClusterizerApi(token).getAnalysisResult(project.id, analysis)
+                .then(res => {
+                    setAnalysisResult(res.data);
+                });
+        }
+
+        /// analysis then needs to be replaced in the list
         const newAllAnalysis = [...allAnalysis];
         newAllAnalysis[allAnalysis.map(a => a.id).indexOf(analysis.id)] = analysis;
         setAllAnalysis(newAllAnalysis);
-        /// analysis then needs to be replaced in the list
         // eslint-disable-next-line
     }, [analysis, setSplits]);
 
@@ -58,18 +70,79 @@ export function AnalysisController({analysis, setAnalysis, project, preProcessin
             , "delete-analysis");
     };
 
+    const renameAnalysis = (a, newName) => {
+        new ClusterizerApi(token).renameAnalysis(project.id, a, newName)
+            .then(res => {
+                const newAnalysis = {...a, name: newName};
+                const newAllAnalysis = [...allAnalysis];
+                newAllAnalysis[allAnalysis.map(a => a.id).indexOf(a.id)] = newAnalysis;
+                setAllAnalysis(newAllAnalysis);
+            })
+    }
+
+    const downloadResult = (a) => {
+        new ClusterizerApi(token).getAnalysisResult(project.id, a)
+            .then(res => {
+                const a = document.createElement("a");
+                const file = new Blob([JSON.stringify(res.data)], {type: "text/plain"});
+                a.href = URL.createObjectURL(file);
+                a.download = `${project.name}.${analysis.name}.result.json`;
+                a.click();
+            })
+    };
+
     const deleteSplit = (s) => {
-        setSplits(prevAll => [...prevAll.filter(oldSplit => oldSplit.url !== s.url)]);
+        setSplits(prevAll => [...prevAll.filter(oldSplit => oldSplit.id !== s.id)]);
+        new ClusterizerApi(token).deleteSplit(s).then(r => {
+        });
         setAnalysis(prevAnalysis => {
-            const newAnalysis = {...prevAnalysis, splits: [...prevAnalysis.splits.filter(x => x.url !== s.url)]};
-            new ClusterizerApi(token).updateAnalysis(project.id, newAnalysis)
-                .then(res => {
-                    // NotificationManager.info("deleted split");
-                });
-            return newAnalysis;
+            return {...prevAnalysis, splits: [...prevAnalysis.splits.filter(x => x.id !== s.id)]};
         });
         setAllAnalysis(prevAll => [...prevAll.filter(a => a.id !== analysis.id), analysis])
     };
 
-    return [allAnalysis, addAnalysis, deleteAnalysis, deleteSplit];
+    const performSplit = (s) => {
+        trackPromise(
+            new ClusterizerApi(token).singleSplit(project.id, analysis, s)
+                .then(res => {
+                    const url = res.data;
+                    const newSplit = {...s, url: url};
+                    setSplit(newSplit);
+                    const newSplits = [...splits];
+                    newSplits[splits.map(s => s.id).indexOf(newSplit.id)] = newSplit;
+                    setAnalysis({...analysis, splits: [...newSplits]});
+                    setSplits(newSplits);
+                    /// further updates are triggered in a above effect...
+                }), "bounce-split-" + s.id)
+    };
+
+    const bounceAllSplit = (a) => {
+        const promises = a.splits.map(s => {
+            return trackPromise(new ClusterizerApi(token).singleSplit(project.id, a, s)
+                .then(res => {
+                    return {...s, url: res.data}
+                }), "new-analysis")
+        });
+        Promise.all(promises).then(newSplits => {
+            console.log(newSplits);
+            const newAnalysis = {...a, splits: newSplits};
+            const newAllAnalysis = [...allAnalysis];
+            newAllAnalysis[allAnalysis.map(a => a.id).indexOf(a.id)] = newAnalysis;
+            setAllAnalysis(newAllAnalysis);
+            setAnalysis(newAnalysis);
+        })
+    }
+
+    function renameSplit(s, name) {
+        new ClusterizerApi(token).renameSplit(project.id, analysis, s, name)
+            .then(res => {
+                const newSplit = {...s, name: name};
+                const newSplits = [...splits];
+                newSplits[splits.map(s => s.id).indexOf(newSplit.id)] = newSplit;
+                setAnalysis({...analysis, splits: [...newSplits]});
+                setSplits(newSplits);
+            })
+    }
+
+    return [allAnalysis, addAnalysis, deleteAnalysis, renameAnalysis, bounceAllSplit, downloadResult, deleteSplit, renameSplit, performSplit];
 }

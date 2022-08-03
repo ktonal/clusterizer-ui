@@ -1,6 +1,6 @@
 import React, {useContext, useState} from "react";
 import {NotificationContainer} from 'react-notifications';
-import {Waveform} from "./components/common/Waveform";
+import {WaveformContainer} from "./components/common/Waveform";
 import ClusterizerApi from "./api";
 import {usePromiseTracker} from "react-promise-tracker";
 import {NewAnalysisForm} from "./components/stage2-analysis/NewAnalysisForm";
@@ -9,21 +9,57 @@ import {NewPreProcessingForm} from "./components/stage1-pre-processing/NewPrePro
 import {PreProcessingController} from "./components/stage1-pre-processing/PreProcessingController";
 import {ProjectController} from "./components/project/ProjectController";
 import {NewProjectForm} from "./components/project/NewProjectForm";
-import {Accordion, AccordionContext, Button, Container, Spinner, useAccordionButton} from "react-bootstrap";
+import {Accordion, AccordionContext, Button, Spinner, useAccordionButton} from "react-bootstrap";
 import {AuthContext, clientId} from "./Auth";
 import {ProjectCard} from "./components/project/ProjectCard";
 import {PreProcessingCard} from "./components/stage1-pre-processing/PreProcessingCard";
 import {AnalysisCard} from "./components/stage2-analysis/AnalysisCard";
 import {FiPlus} from "react-icons/fi";
-import jwt_decode from "jwt-decode";
+// import {ExportController} from "./components/stage3-export/ExportController";
+import {Sortable} from "./components/common/Sortable";
 
-function Clusterizer({token}) {
+const AccordionHeader = (({children, eventKey, showForm, setShowForm, secondaryChildren}) => {
+    const {activeEventKey} = useContext(AccordionContext);
+    const toggleSection = useAccordionButton(eventKey, () => {
+        if (activeEventKey !== eventKey) {
+            // we are opening
+            setShowForm(false)
+        }
+    });
 
+    return (
+        <div style={{display: "flex"}}>
+            <Button className={"m-3"}
+                    variant={"outline-primary"} size={"md"} type={"button"}
+                    onClick={() => {
+                        if (activeEventKey !== eventKey) toggleSection(eventKey);
+                        setShowForm(true);
+                    }}>
+                <FiPlus/>
+            </Button>
+            <div style={{flex: 1, padding: "6px 0", display: "flex", alignItems: "center"}}
+                 onClick={() => {
+                     if (showForm && activeEventKey === eventKey) {
+                         setShowForm(false);
+                         return;
+                     }
+                     toggleSection(eventKey);
+                 }}
+            >
+                {children}
+            </div>
+            {secondaryChildren}
+        </div>);
+});
+
+function Clusterizer() {
+    const {token} = useContext(AuthContext);
     const [project, setProject] = useState({});
     const [preProcessing, setPreProcessing] = useState({});
     const [analysis, setAnalysis] = useState({});
     const [split, setSplit] = useState({});
     const [splits, setSplits] = useState([]);
+    const [analysisResult, setAnalysisResult] = useState([]);
 
     const [allProjects, addProject, deleteProject] = ProjectController({project, setProject});
     const {promiseInProgress: fetchingProjects} = usePromiseTracker({area: "project-list"});
@@ -38,69 +74,63 @@ function Clusterizer({token}) {
     const {promiseInProgress: fetchingPPs} = usePromiseTracker({area: "loading-pre-processings", delay: 0});
     const {promiseInProgress: creatingPP} = usePromiseTracker({area: "new-pre-processing"});
 
-    const [allAnalysis, addAnalysis, deleteAnalysis, deleteSplit] = AnalysisController({
+    const [allAnalysis, addAnalysis, deleteAnalysis, renameAnalysis, bounceAllSplit, downloadResult, deleteSplit, renameSplit, performSplit] = AnalysisController({
         analysis,
         setAnalysis,
         project,
         preProcessing,
+        split,
+        setSplit,
         splits,
-        setSplits
+        setSplits,
+        setAnalysisResult,
     });
     const {promiseInProgress: fetchingAnalysis} = usePromiseTracker({area: "loading-analysis"});
     const {promiseInProgress: creatingAnalysis} = usePromiseTracker({area: "new-analysis"});
 
     const {promiseInProgress: creatingSplits} = usePromiseTracker({area: "split"});
 
+    // const [currentExport, createExport, addSplitToExport, removeSplitFromExport, urlToObject, doExport] = ExportController({
+    //     project,
+    //     allAnalysis
+    // });
+
     const [showProjectForm, setShowProjectForm] = useState(false);
     const [showPPForm, setShowPPForm] = useState(false);
     const [showAnalysisForm, setShowAnalysisForm] = useState(false);
+    // const [showExportForm, setShowExportForm] = useState(false);
 
-    const AccordionHeader = (({children, eventKey, showForm, setShowForm}) => {
-        const {activeEventKey} = useContext(AccordionContext);
-        const toggleSection = useAccordionButton(eventKey, () => {
-            if (activeEventKey !== eventKey) {
-                // we are opening
-                setShowForm(false)
-            }
-        });
-
-        return (
-            <div
-                style={{display: "flex"}}
-            >
-                <Button
-                    className={"m-3"}
-                    variant={"outline-primary"} size={"md"} type={"button"}
-                    onClick={() => {
-                        if (activeEventKey !== eventKey) toggleSection(eventKey);
-                        setShowForm(true);
-                    }}>
-                    <FiPlus/>
-                </Button>
-                <div style={{flex: 1, padding: "6px 0", display: "flex", alignItems: "center"}}
-                     onClick={() => {
-                         if (showForm && activeEventKey === eventKey) {
-                             setShowForm(false);
-                             return;
-                         }
-                         toggleSection(eventKey);
-                     }}
-                >
-                    {children}
-                </div>
-                {/*<a className={"primary p-4"}>keep open</a>*/}
-                {/*<span className={"p-4 text-muted"}>{eventKey}</span>*/}
-            </div>
-        );
-    });
+    const [showExportSplits,] = useState(false);
     return (
-        <Container id={"root-container"}>
+        <div id={"root-container"}
+             className={"mx-3"}>
             <NotificationContainer/>
-            <Accordion style={{width: "100%"}} defaultActiveKey={"project"}>
+            {project.hasOwnProperty("file_info") ?
+                <>
+                    <h3 style={{width: "max-content", margin: "auto"}}>
+                        {project.file_info.name}
+                    </h3>
+                    <WaveformContainer
+                        split={{...project.file_info, id: project.id}}
+                        analysisResult={analysisResult}
+                        selectedLabel={split.label}
+                        setSplit={() => {
+                        }}
+                        renameSplit={null}
+                    />
+                </>
+                : null
+            }
+            <br/>
+            <Accordion style={{position: "fixed", maxHeight: "70vh"}}
+                       className={"col-sm-4 overflow-auto"}
+                       defaultActiveKey={["project"]}>
+
                 <Accordion.Item eventKey={"project"}>
                     <AccordionHeader eventKey={"project"}
                                      showForm={showProjectForm}
-                                     setShowForm={setShowProjectForm}>
+                                     setShowForm={setShowProjectForm}
+                    >
 
                         <h4>{project.hasOwnProperty("name") ? project.name : null}</h4>
                         <span className={"mx-3"}>{project.file_name}</span>
@@ -133,7 +163,8 @@ function Clusterizer({token}) {
                 <Accordion.Item eventKey={"pre-processing"}>
                     <AccordionHeader eventKey={"pre-processing"}
                                      showForm={showPPForm}
-                                     setShowForm={setShowPPForm}>
+                                     setShowForm={setShowPPForm}
+                    >
                         <h4>{preProcessing.hasOwnProperty("name") ? preProcessing.name : null}</h4>
                     </AccordionHeader>
                     <Accordion.Body className={"overflow-auto"}
@@ -160,12 +191,24 @@ function Clusterizer({token}) {
                 <Accordion.Item eventKey={"analysis"}>
                     <AccordionHeader eventKey={"analysis"}
                                      showForm={showAnalysisForm}
-                                     setShowForm={setShowAnalysisForm}>
-                        <h4>{analysis.hasOwnProperty("name") ? analysis.name : null}</h4>
+                                     setShowForm={setShowAnalysisForm}
+                                     children={
+                                         <h4>{analysis.hasOwnProperty("name") ? analysis.name : null}</h4>
+                                     }
+                        // secondaryChildren={
+                        //     <span className={"mx-3"}
+                        //           onClick={e => {
+                        //               e.preventDefault();
+                        //               setShowExportSplits(p => !p)
+                        //           }}>
+                        //        {showExportSplits ? "show list" : "hide list"}
+                        //    </span>}
+                    >
+
                     </AccordionHeader>
                     <Accordion.Body className={"overflow-auto"}
                                     style={{maxHeight: "600px"}}>
-                        {creatingAnalysis || fetchingAnalysis
+                        {creatingAnalysis || fetchingAnalysis || creatingSplits
                             ? <Spinner animation="border" role="status"
                                        style={{width: "100px", height: "100px", margin: "auto auto"}}/>
                             : (showAnalysisForm || (allAnalysis.length === 0)
@@ -180,48 +223,121 @@ function Clusterizer({token}) {
                                                          selectAnalysis={setAnalysis}
                                                          project={project}
                                                          deleteAnalysis={() => deleteAnalysis(a)}
+                                                         downloadResult={downloadResult}
+                                                         renameAnalysis={renameAnalysis}
+                                                         bounceAllSplit={bounceAllSplit}
                                     />
                                 })
                                 }</div>)}
                     </Accordion.Body>
                 </Accordion.Item>
+                {/*<Accordion.Item eventKey={"export"}>*/}
+                {/*    <AccordionHeader eventKey={"export"}*/}
+                {/*                     showForm={showExportForm}*/}
+                {/*                     setShowForm={setShowExportForm}*/}
+                {/*                     children={*/}
+                {/*                         <h4>{currentExport.hasOwnProperty("name") ? currentExport.name : "Export"}</h4>}*/}
+                {/*                     secondaryChildren={*/}
+                {/*                         <span className={"mx-3"} onClick={e => {*/}
+                {/*                             e.preventDefault();*/}
+                {/*                             setShowExportSplits(p => !p)*/}
+                {/*                         }}>*/}
+                {/*                {showExportSplits ? "hide list" : "show list"}*/}
+                {/*            </span>}*/}
+                {/*    >*/}
+                {/*    </AccordionHeader>*/}
+                {/*    <Accordion.Body className={"overflow-auto"}*/}
+                {/*                    style={{maxHeight: "600px"}}>*/}
+                {/*        {showExportForm*/}
+                {/*            ? <NewExportForm setExport={e => {*/}
+                {/*                createExport(e);*/}
+                {/*                setShowExportForm(false);*/}
+                {/*            }}/>*/}
+                {/*            : <div>*/}
+                {/*                {*/}
+                {/*                    Object.entries(currentExport.splits).map(([i, splitURL]) => {*/}
+                {/*                        const split = urlToObject(splitURL);*/}
+                {/*                        if (split !== undefined) {*/}
+                {/*                            return <p key={i + split.id}>*/}
+                {/*                                {i}---{split.name} {split.label} {split.duration}*/}
+                {/*                            </p>*/}
+                {/*                        } else return null;*/}
+                {/*                    })*/}
+                {/*                }*/}
+                {/*                {Object.entries(currentExport.splits).length > 0*/}
+                {/*                    ? <Button variant={"outline-primary"}*/}
+                {/*                              onClick={doExport}>*/}
+                {/*                        Export*/}
+                {/*                    </Button> : null}*/}
+                {/*            </div>}*/}
+                {/*    </Accordion.Body>*/}
+                {/*</Accordion.Item>*/}
             </Accordion>
-            {creatingSplits ?
-                <Spinner animation="border" role="status"
-                         style={{width: "100px", height: "100px", margin: "auto auto"}}/>
-                : null}
-            <div>
-                {
-                    splits && token ?
-                        splits.map((s) => <Waveform key={s.url}
-                                                    split={s}
-                                                    selectedUrl={split.url}
-                                                    setSplit={setSplit}
-                                                    removeSplit={() => deleteSplit(s)}
-                                                    audioURL={`${new ClusterizerApi(token).baseUrl}/audio/${s.url}`}
-                        />) : null}
+            <div className={"col-sm-8 offset-sm-4 overflow-auto"} style={{maxHeight: "70vh"}}>
+                <h3 className={"mx-auto"}
+                    style={{width: "max-content"}}>
+                    {showExportSplits ?
+                        "Export Splits"
+                        : `${project.name} > ${analysis.name}`}
+                </h3>
+                <div className={"px-3"} >
+                    {!showExportSplits && splits !== undefined && splits.length > 0 && token ?
+                        <Sortable items={splits}
+                                  excludeKeys={["id", "url"]}
+                                  renderItem={(s) => {
+                                      return (
+                                          <WaveformContainer
+                                              key={s.id}
+                                              split={s}
+                                              selectedId={split.id}
+                                              setSplit={setSplit}
+                                              removeSplit={() => deleteSplit(s)}
+                                              addSplitToExport={() => {
+                                              }}
+                                              audioURL={s.url}
+                                              performSplit={performSplit}
+                                              renameSplit={renameSplit}
+                                          />)
+                                  }}/> : null}
+                    {/*{showExportSplits && Object.entries(currentExport.splits) && token ?*/}
+                    {/*    Object.entries(currentExport.splits).map(([i, u]) => {*/}
+                    {/*        const s = urlToObject(u);*/}
+                    {/*        if (s === undefined) return null;*/}
+                    {/*        return <Waveform key={i + s.url}*/}
+                    {/*                         split={s}*/}
+                    {/*                         selectedUrl={split.url}*/}
+                    {/*                         setSplit={setSplit}*/}
+                    {/*                         removeSplit={() => removeSplitFromExport(i)}*/}
+                    {/*                         addSplitToExport={null}*/}
+                    {/*                         audioURL={s.url}*/}
+                    {/*        />*/}
+                    {/*    }) : null}*/}
+                </div>
             </div>
-        </Container>
+        </div>
     )
 }
 
 function App() {
     const storedToken = localStorage.getItem("IdToken");
-    const expiredToken = Number.parseInt(localStorage.getItem("IdTokenExpiresAt")) < Date.now();
-    const [userLoaded, setUserLoaded] = useState(expiredToken);
-    const [token, setToken] = useState(storedToken);
+    const expired = Number.parseInt(localStorage.getItem("IdTokenExpiry")) < (Date.now() / 1000);
+    const [userLoaded, setUserLoaded] = useState(!expired);
+    const [token, setToken] = useState(expired ? null : storedToken);
+    // const [userLoaded, setUserLoaded] = useState(false);
+    // const [token, setToken] = useState(null);
 
     window.onSignIn = (response) => {
-        // Useful data for your client-side scripts:
-        const decoded = jwt_decode(response.credential);
         const tk = response.credential;
-        setToken(tk);
-        setUserLoaded(true);
-        localStorage.setItem("IdToken", tk);
-        localStorage.setItem("IdTokenExpiresAt", decoded.exp.toString());
+        new ClusterizerApi(tk).login().then(res => {
+            const token = res.data.access_token;
+            setToken(token);
+            setUserLoaded(true);
+            localStorage.setItem("IdToken", token);
+            localStorage.setItem("IdTokenExpiry", res.data.expires.toString());
+        })
     };
     return (
-        <Container>
+        <div style={{padding: "30px 5px 0 5px"}}>
             <div className="g_id_signin"
                  data-type="standard"
                  data-size="large"
@@ -232,7 +348,7 @@ function App() {
                  style={{margin: "1rem 1rem 1rem auto", width: "max-content"}}
             >
             </div>
-            {(!userLoaded)
+            {(!userLoaded || token === null)
                 ? <div style={{margin: "auto", width: "max-content"}}>
                     <div id="g_id_onload"
                          data-client_id={clientId}
@@ -245,20 +361,14 @@ function App() {
                              style={{width: "300px", height: "300px", margin: "50px auto"}}/>
                 </div>
                 : <AuthContext.Provider value={{
-                    token: token, setToken: setToken, expiresAt: localStorage.getItem("IdTokenExpiresAt"),
+                    token: token, setToken: setToken, expiresAt: localStorage.getItem("IdTokenExpiry"),
                     refreshToken: () => window.google.accounts.id.prompt()
                 }}>
                     <>
-                        <div id="g_id_onload"
-                             data-client_id={clientId}
-                             data-auto_select="true"
-                             data-callback={"onSignIn"}
-                        >
-                        </div>
-                        <Clusterizer token={token}/>
+                        <Clusterizer/>
                     </>
                 </AuthContext.Provider>
-            }</Container>
+            }</div>
     );
 }
 

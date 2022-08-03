@@ -1,21 +1,10 @@
-import ClusterizerApi from "../../api";
 import {Button, Card} from "react-bootstrap";
-import React, {useContext} from "react";
-import {trackPromise} from "react-promise-tracker";
-import {FaTrash} from "react-icons/fa";
-import {AuthContext} from "../../Auth";
+import React from "react";
+import {FiTrash, FiDownload} from "react-icons/fi";
+import {Editable} from "../common/Editable";
 
-export function AnalysisCard({analysis, selectAnalysis, selectedId, project, deleteAnalysis}) {
-    const {token} = useContext(AuthContext);
+export function AnalysisCard({analysis, selectAnalysis, selectedId, project, deleteAnalysis, downloadResult, renameAnalysis, bounceAllSplit}) {
 
-    const addSplits = () => {
-        trackPromise(
-            new ClusterizerApi(token).split(project.id, analysis)
-                .then((resp) => {
-                    const newA = {...analysis, splits: [...resp.data]}
-                    selectAnalysis(newA);
-                }), "split")
-    };
     return (
         <div>
             <Card style={{borderWidth: "3px"}}
@@ -23,21 +12,38 @@ export function AnalysisCard({analysis, selectAnalysis, selectedId, project, del
                   onClick={() => selectAnalysis(analysis)}
             >
                 <Card.Body>
-                    <Card.Title>{analysis.name}</Card.Title>
+                    <Card.Title>
+                        <Editable value={analysis.name}
+                                  onSubmit={(newName) => renameAnalysis(analysis, newName)}/>
+                    </Card.Title>
                     <Card.Text>
-                        {Object.entries(analysis.parameters).map(([k, v], i) =>
-                            ["id", "name"].includes(k) ? null :
-                                <span key={k}>{k} = {v} ;<br/></span>
-                        )}
+                        {Object.keys(analysis.parameters).sort((a, b) => a > b ? 1 : -1)
+                            .map(k => <>{k}: {analysis.parameters[k]}<br/></>)
+                        }
                     </Card.Text>
-                    <br/>
-                    <Button variant={"outline-secondary"}
-                            onClick={(e) => {addSplits(); e.stopPropagation()}}
-                    >SPLIT</Button>
+                    <Button className={"me-1"}
+                            variant={"outline-primary"}
+                            onClick={e => {
+                                downloadResult(analysis)
+                                e.stopPropagation()
+                            }}>
+                        <FiDownload style={{verticalAlign: "text-top"}}/> Result
+                    </Button>
+                    <Button className={"me-1"}
+                            variant={"outline-primary"}
+                            onClick={e => {
+                                bounceAllSplit(analysis);
+                                e.stopPropagation()
+                            }}>
+                        Bounce All
+                    </Button>
                     <Button variant={"outline-danger"}
                             style={{position: "relative"}}
-                            onClick={e => {deleteAnalysis(); e.stopPropagation()}}
-                    ><FaTrash/></Button>
+                            onClick={e => {
+                                deleteAnalysis();
+                                e.stopPropagation()
+                            }}
+                    ><FiTrash/></Button>
                 </Card.Body>
             </Card>
         </div>

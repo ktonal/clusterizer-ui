@@ -1,22 +1,19 @@
 $primary: rgb(64, 64, 88);
-$bg: #fafcfc;
+$bg: #ffffff;
 $card-bg: $bg;
 $form-bg: $bg;
 $input-bg: $bg;
 $nav-tabs-link-active-bg: #e2e2e2;
 $font-size-base: .8rem;
-:root {
-  --primary: $primary;
-  --secondary: $secondary;
-}
+
 body {
   height: 100vh;
   width: 100vw;
   margin: auto;
   background: $bg !important;
 }
-
 @import "~bootstrap";
+
 .forms-container {
   height: 100vh;
   width: 25%;
@@ -27,8 +24,8 @@ body {
 }
 
 .entity-form {
-  width: 512px;
-  min-height: 256px;
+  width: 100%;
+  min-width: 270px;
 }
 
 .entities-container {
@@ -36,7 +33,6 @@ body {
   width: 25%;
   max-width: 40% !important;
   display: grid;
-  /*grid-template-rows: 3fr 3fr 3fr;*/
   align-items: center;
   justify-items: center;
 }
@@ -58,19 +54,23 @@ body {
   max-height: max-content;
 }
 
+.waveform-container:nth-of-type(1) {
+  margin-top: 0 !important;
+}
+
 .play-button {
   position: absolute;
   top: 50%;
-  transform: translate(-165%, -50%);
+  transform: translate(-175%, -50%);
 }
 
 .add-split-button {
-  padding-right: 1em;
+  padding-right: .25em;
   position: absolute;
   top: 50%;
   right: 0;
   transform: translate(0, -50%);
-  //display: flex;
+  display: grid;
   //justify-items: center;
 }
 
