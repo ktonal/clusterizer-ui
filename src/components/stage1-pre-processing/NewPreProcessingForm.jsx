@@ -12,7 +12,7 @@ function SampleRateDropDown({onSelect, value}) {
 
 function WindowSizeDropDown({onSelect, value}) {
     return <BaseDropDown name={"Window Size"}
-                         items={[1024, 2048, 4096]}
+                         items={[256, 512, 1024, 2048, 4096]}
                          onSelect={onSelect}
                          value={value}
     />
@@ -20,7 +20,7 @@ function WindowSizeDropDown({onSelect, value}) {
 
 function HopLengthDropDown({onSelect, value}) {
     return <BaseDropDown name={"Hop Length"}
-                         items={[512, 1024, 2048]}
+                         items={[64, 128, 256, 512, 1024, 2048]}
                          onSelect={onSelect}
                          value={value}
     />

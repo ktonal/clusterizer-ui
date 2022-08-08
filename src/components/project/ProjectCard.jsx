@@ -14,7 +14,8 @@ export function ProjectCard({project, selectProject, selectedId, deleteProject})
                     <Card.Title>{project.name}</Card.Title>
                     <Card.Text>
                         <span>file: {project.file_name}<br/></span>
-                        <span>created at: {project.created_at}</span>
+                        <span>created at: {project.created_at}<br/></span>
+                        {/*<span>id: {project.id}</span>*/}
                     </Card.Text>
                     <Button variant={"outline-danger"}
                             style={{position: "relative"}}

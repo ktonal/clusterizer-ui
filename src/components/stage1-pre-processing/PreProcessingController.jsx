@@ -16,7 +16,7 @@ export function PreProcessingController({preProcessing, project, setPreProcessin
             trackPromise(
                 new ClusterizerApi(token).listPreProcessings(project.id).then((resp) => {
                     setPps(resp.data);
-                    if (resp.data.length > 0) NotificationManager.info("loaded pre-processing");
+                    // if (resp.data.length > 0) NotificationManager.info("loaded pre-processing");
                 }), "loading-pre-processings")
         } else {
             setPreProcessing({});

@@ -1,4 +1,4 @@
-import React, {useContext, useEffect, useRef, useState} from "react";
+import React, {useContext, useEffect, useReducer, useRef, useState} from "react";
 import {Button, Card, Spinner} from "react-bootstrap";
 import Peaks from 'peaks.js';
 import {FiTrash, FiPlay, FiPause, FiDownload} from "react-icons/fi";
@@ -29,31 +29,41 @@ function DownloadAudio(audioURL, token, filename) {
         })
 }
 
-function LabelOverlay({analysisResult, label, totalWidth, color}) {
-    const N = analysisResult.length;
-    const width = (totalWidth / N) + "px";
-    return <>{label !== null &&
-    analysisResult.map((x, i) => {
-        if (x !== label) return null;
-        const position = (i * (totalWidth / N)) + "px";
-        return <div key={i}
-                    style={{
-                        position: "absolute", width: width, height: "100%",
-                        left: position,
-                        // bottom: "10%",
-                        backgroundColor: "rgba(255,200,0,0.41)",
-                        zIndex: 1000
-                    }}>
-
-        </div>
-    })
-    }</>
-}
+// function LabelOverlay(
+//     {
+//         analysisResult,
+//         label,
+//         totalWidth,
+//         totalDuration,
+//         displayedSegment,
+//         }) {
+//     const N = analysisResult.length;
+//     const zoomFactor = (displayedSegment.endTime - displayedSegment.startTime) / totalDuration;
+//     const width = zoomFactor * (totalWidth / N) + "px";
+//     return <>{label !== null &&
+//     analysisResult.map((x, i) => {
+//         if (x !== label) return null;
+//         const position = (i * (totalWidth / N)) + "px";
+//         if (position < displayedSegment.startTime || position > displayedSegment.endTime) return null;
+//         return <div key={i}
+//                     style={{
+//                         position: "absolute", width: width, height: "100%",
+//                         left: position,
+//                         // bottom: "10%",
+//                         backgroundColor: "rgba(255,200,0,0.41)",
+//                         zIndex: 1000
+//                     }}>
+//
+//         </div>
+//     })
+//     }</>
+// }
 
 function WaveformControls({addSplitToExport, removeSplit, split}) {
     const {token} = useContext(AuthContext);
     return (
-        <div className={"add-split-button"}>
+        <div className={"add-split-button"}
+             >
             <Button className={"mx-1 my-2"}
                     variant={"outline-danger"} size={"sm"} type={"button"}
                     onClick={() => {
@@ -107,6 +117,24 @@ export function WaveformContainer(
             div.removeEventListener("keydown", eventListener)
         }
     }, [divWidth, selectedId, split, playButton]);
+    const segments = [];
+    if (analysisResult !== undefined) {
+        let thisSegment = {startTime: 0};
+        let frameDur = split.duration / analysisResult.length;
+        let lastLabel = analysisResult[0];
+        let i = 0;
+        while (i < analysisResult.length) {
+            if (analysisResult[i] !== lastLabel && lastLabel === selectedLabel) {
+                thisSegment.endTime = i * frameDur;
+                thisSegment.labelText = `label=${lastLabel.toString()}; frames=${Number.parseInt((thisSegment.startTime / frameDur).toString())}-${i}`;
+                segments.push(thisSegment);
+            } else if (analysisResult[i] !== lastLabel && analysisResult[i] === selectedLabel) {
+                thisSegment = {startTime: i * frameDur, endTime: 0, color: 'rgb(224,171,39)'};
+            }
+            lastLabel = analysisResult[i];
+            i++;
+        }
+    }
     return (
         <Card className={"m-2 waveform-container"}
               border={split.id === selectedId ? "primary" : ""}
@@ -114,8 +142,12 @@ export function WaveformContainer(
               onClick={() => {
                   setSplit(split)
               }}
+              style={{backgroundColor: 'rgba(249,249,249,0.82)'}}
         >
-            <div style={{marginLeft: split.url === null ? "0" : "78px", position: "relative"}}>
+            <div style={{
+                marginLeft: split.url === null ? "0" : "78px", position: "relative",
+            }}
+            >
 
                 {split.url !== null ?
                     <>
@@ -128,15 +160,12 @@ export function WaveformContainer(
                         >
                             {playing ? <FiPause/> : <FiPlay/>}
                         </Button>
-                        {analysisResult &&
-                        <LabelOverlay totalWidth={divWidth}
-                                      analysisResult={analysisResult}
-                                      label={selectedLabel}/>}
                         <Waveform audioURL={split.url} divWidth={divWidth}
                                   playing={playing} setPlaying={setPlaying}
                                   playButton={playButton}
                                   audioName={renameSplit === null ? '' : split.name}
                                   renameAudio={(newName) => renameSplit(split, newName)}
+                                  segments={segments}
                         />
                         <WaveformControls
                             split={split} addSplitToExport={addSplitToExport} removeSplit={removeSplit}
@@ -158,71 +187,175 @@ export function WaveformContainer(
         </Card>)
 }
 
-export function Waveform({audioURL, divWidth, playing, setPlaying, playButton, audioName, renameAudio}) {
+export function Waveform(
+    {
+        audioURL,
+        divWidth,
+        playing,
+        setPlaying,
+        playButton,
+        audioName,
+        renameAudio,
+        segments,
+    }) {
     const {token} = useContext(AuthContext);
     const [peaks, setPeaks] = useState(null);
+    const [selection, setSelection] = useState({capture: false, selectionStart: null, selectionEnd: null});
+    const [state, dispatch] = useReducer((state, action) => {
+        switch (action.type) {
+            case 'init':
+                const {token, setPlaying, playButton} = action.payload;
+
+                return {
+                    ...state,
+                    token: token, setPlaying: setPlaying, playButton: playButton,
+                };
+            case 'newAudio':
+                const url = action.payload;
+                const containerEl = document.getElementById('overview' + url);
+                const audioEl = document.getElementById(url);
+                fetchAudioElementContent(url, audioEl, state.token);
+                const audioContext = new AudioContext();
+                const options = {
+                    zoomview: {
+                        container: containerEl,
+                        waveformColor: 'rgba(63,94,103,0.8)',
+                        playheadColor: '#000000',
+                        wheelMode: "scroll"
+                    },
+                    zoomLevels: [16],
+                    mediaElement: audioEl,
+                    webAudio: {
+                        audioContext: audioContext,
+                        scale: 16,
+                        multiChannel: false
+                    },
+                    segmentStartMarkerColor: '#a0a0a0',
+                    segmentEndMarkerColor: '#a0a0a0',
+                    randomizeSegmentColor: false,
+                    segmentColor: '#000000',
+                    segments: segments,
+                };
+                if (peaks === null) {
+                    Peaks.init(options, function (err, instance) {
+                        setPeaks(instance);
+                    });
+                } else {
+                    peaks.setSource({
+                        mediaUrl: state.audioEl.src, webAudio: {
+                            audioContext: new AudioContext(),
+                            scale: 16,
+                            multiChannel: false
+                        },
+                    }, () => {
+                        peaks.views.getView('zoomview').setZoom({seconds: peaks.player.getDuration()});
+                    });
+                }
+                return {
+                    ...state, containerEl: containerEl,
+                    audioEl: audioEl,
+                    audioURL: audioURL,
+                };
+            case 'newSegment':
+                if (peaks !== null) {
+                    peaks.segments.removeAll();
+                    segments.forEach(s => peaks.segments.add(s));
+                    return {...state, segments: segments};
+                }
+                return state;
+            case 'newPeak':
+                const view = peaks.views.getView('zoomview');
+                view.showPlayheadTime(true);
+                view.setZoom({seconds: state.audioEl.duration});
+
+                peaks.on('zoomview.dblclick', () => {
+
+                });
+                peaks.on("zoomview.click", () => {
+                    state.playButton.current.focus();
+                });
+                peaks.on("player.seeked", () => {
+                    // const playButton = document.getElementById("play-" + audioURL);
+                    state.playButton.current.focus();
+                });
+                peaks.on("player.ended", () => {
+                    state.setPlaying(false)
+                });
+
+                state.containerEl.addEventListener("dblclick", (event) => {
+                    if (event.altKey && event.shiftKey) {
+                        view.setZoom({seconds: peaks.player.getDuration()})
+                    } else {
+                        state.setPlaying(true);
+                        state.playButton.current.click();
+                    }
+                })
+
+                state.containerEl.addEventListener("wheel", (event) => {
+                    const zoomview = peaks.views.getView('zoomview');
+
+                    if (!zoomview) return;
+
+                    if (event.shiftKey && event.altKey) {
+                        // @ts-ignore
+                        const maxScale = zoomview._getScale(peaks.player.getDuration());
+
+                        zoomview.setZoom({
+                            // @ts-ignore
+                            scale: Math.max(Math.min(zoomview._scale * (event.wheelDelta > 0 ? 1.1 : .9), maxScale), 16),
+                        });
+                        event.preventDefault();
+                    } else {
+                        zoomview.setStartTime(
+                            // @ts-ignore
+                            zoomview.pixelsToTime(zoomview._frameOffset) + event.deltaX / 100
+                        );
+                    }
+                });
+
+
+                return {...state, peaks: peaks};
+            default:
+                return state;
+        }
+    }, {
+        audioURL: null, peaks: null, segments: [],
+        containerEl: null,
+        audioEl: null,
+        playButton: null, setPlaying: null, token: null
+    });
 
     useEffect(() => {
-        const containerEl = document.getElementById('overview' + audioURL);
-
-        const audioEl = document.getElementById(audioURL);
-        fetchAudioElementContent(audioURL, audioEl, token);
-        if (peaks !== null) {
-            peaks.views.destroyOverview();
-            peaks.views.createOverview(containerEl);
-            peaks.setSource({mediaUrl: audioEl.src}, () => {
-            });
+        if (![token, setPlaying, playButton].some(x => x === undefined)) {
+            dispatch({
+                type: 'init',
+                payload: {
+                    token: token, setPlaying: setPlaying, playButton: playButton,
+                }
+            })
         }
-        const audioContext = new AudioContext();
-        const options = {
-            zoomview: {
-                container: document.getElementById('zoomview' + audioURL),
-                waveformColor: '#538ece',
-                playheadColor: '#000000',
-            },
-            overview: {
-                container: containerEl,
-                highlightColor: 'rgba(1, 1, 1, 0)',
-                waveformColor: '#969696',
-                playheadColor: 'rgba(26,26,26,0.73)',
-            },
+    }, [token, setPlaying, playButton]);
 
-            mediaElement: audioEl,
-            webAudio: {
-                audioContext: audioContext,
-                scale: 128,
-                multiChannel: false
-            },
-        };
+    useEffect(() => {
+        if (state.audioURL !== audioURL) {
+            dispatch({
+                type: "newAudio",
+                payload: audioURL
+            })
+        }
+    }, [audioURL, state, dispatch]);
 
-        Peaks.init(options, function (err, instance) {
-            if (instance !== undefined) {
-                if (peaks === null) setPeaks(instance);
-                // peaks.setSource({mediaUrl: audioEl.src}, () => {
-                // });
-                const view = instance.views.getView('overview');
-                view.showPlayheadTime(true);
-                view.fitToContainer();
-
-                instance.on('overview.dblclick', () => {
-                    setPlaying(true);
-                });
-                instance.on("overview.click", () => {
-                    // const playButton = document.getElementById("play-" + audioURL);
-                    playButton.current.focus();
-                });
-                instance.on("player.seeked", () => {
-                    // const playButton = document.getElementById("play-" + audioURL);
-                    playButton.current.focus();
-                });
-                instance.on("player.ended", () => {
-                    setPlaying(false)
-                });
-            }
-        });
-
-
-    }, [audioURL, token, playButton, setPlaying, peaks]);
+    useEffect(() => {
+        if (peaks !== null) {
+            dispatch({type: "newPeak", payload: peaks})
+        }
+    }, [peaks, dispatch]);
+    //
+    useEffect(() => {
+        if (state.segments !== segments) {
+            dispatch({type: "newSegment", payload: segments})
+        }
+    }, [segments, state, dispatch]);
 
     useEffect(() => {
         if (peaks === null) return;
@@ -232,17 +365,65 @@ export function Waveform({audioURL, divWidth, playing, setPlaying, playButton, a
             peaks.player.pause()
         }
     }, [playing, peaks]);
-
     return (
         <>
             <span style={{position: "absolute", right: "1em", top: "1em"}}>
                 <Editable value={audioName} onSubmit={(newName) => renameAudio(newName)}/>
             </span>
             <div id={"overview" + audioURL}
-                 style={{height: "178px", width: divWidth + "px"}}
+                 style={{
+                     height: "178px", width: divWidth + "px", position: 'relative',
+                 }}
+                 onMouseDown={e => {
+                     if (e.altKey && e.shiftKey) {
+                         setSelection({
+                             selectionStart: e.nativeEvent.layerX,
+                             capture: true,
+                             selectionEnd: e.nativeEvent.layerX,
+                         })
+                     }
+                 }}
+                 onMouseMove={e => {
+                     if (selection.capture && e.altKey && e.shiftKey) {
+                         setSelection(s => {
+                             return {...s, selectionEnd: e.nativeEvent.layerX}
+                         })
+                     }
+                     e.stopPropagation()
+                 }}
+                 onMouseUp={(e) => {
+                     if (e.altKey && e.shiftKey) {
+                         const view = peaks.views.getView("zoomview");
+                         const downPosition = view.pixelsToTime(view._frameOffset + selection.selectionStart);
+                         const upPosition = view.pixelsToTime(view._frameOffset + e.nativeEvent.layerX)
+                         const startTime = Math.min(upPosition, downPosition);
+                         const endTime = Math.max(upPosition, downPosition);
+                         if (startTime !== endTime) {
+                             view.setZoom({seconds: endTime - startTime});
+                             view.setStartTime(startTime);
+                         }
+                         setSelection({
+                             selectionStart: null,
+                             capture: false,
+                             selectionEnd: null,
+                         })
+                     }
+                     e.preventDefault()
+                 }}
             >
             </div>
+            {selection.capture &&
+            <div style={{
+                position: 'absolute', backgroundColor: "rgba(255,192,197,0.3)",
+                height: "178px",
+                // zIndex: -1000,
+                top: 0,
+                left: (selection.selectionStart <= selection.selectionEnd ? selection.selectionStart : selection.selectionEnd + 5) + "px",
+                width: (Math.max(selection.selectionStart, selection.selectionEnd) - 5 - Math.min(selection.selectionStart, selection.selectionEnd)) + "px"
+            }}>
+            </div>}
 
             <audio id={audioURL} crossOrigin="anonymous"/>
         </>)
 }
+

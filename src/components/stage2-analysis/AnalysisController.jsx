@@ -17,7 +17,7 @@ export function AnalysisController({
             setAllAnalysis([]);
             new ClusterizerApi(token).listAnalysis(project.id, preProcessing.id).then((resp) => {
                 setAllAnalysis(resp.data);
-                if (resp.data.length > 0) NotificationManager.info("loaded analysis")
+                // if (resp.data.length > 0) NotificationManager.info("loaded analysis")
             })
         } else {
             setAnalysis({});

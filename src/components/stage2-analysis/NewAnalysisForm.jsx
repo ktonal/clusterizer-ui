@@ -6,6 +6,7 @@ import {ArgMaxForm} from "./algorithms/argmax";
 import {OnsetSegmentForm} from "./algorithms/onset";
 import {DissimilaritySegmentForm} from "./algorithms/dissimilarity";
 import {SpectralClusteringForm} from "./algorithms/spectral";
+import {QCoresForm} from "./algorithms/qcores";
 
 export function ClusterForm({addClustering}) {
     const [selectedAlgorithm, setSelectedAlgorithm] = useState(null);
@@ -24,6 +25,8 @@ export function ClusterForm({addClustering}) {
                 return <ArgMaxForm setParameters={setParameters}/>;
             case "spectral":
                 return <SpectralClusteringForm setParameters={setParameters}/>;
+            case "qcores":
+                return <QCoresForm setParameters={setParameters}/>;
             default:
                 return null;
         }
@@ -33,7 +36,7 @@ export function ClusterForm({addClustering}) {
         <Form>
             <Row className="m-3">
                 <BaseDropDown name={"Algorithm"}
-                              items={["kmeans", "argmax", "spectral"]}
+                              items={["kmeans", "argmax", "spectral", "qcores"]}
                               onSelect={setSelectedAlgorithm}
                               value={selectedAlgorithm}
                 />
@@ -74,7 +77,7 @@ export function SegmentForm({addSegmenting}) {
         <Form>
             <Row className="m-3">
                 <BaseDropDown name={"Algorithm"}
-                              items={["onset", "dissimilarity"]}
+                              items={["dissimilarity",]}
                               onSelect={setSelectedAlgorithm}
                               value={selectedAlgorithm}
                 />

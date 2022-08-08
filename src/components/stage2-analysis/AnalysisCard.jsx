@@ -17,8 +17,9 @@ export function AnalysisCard({analysis, selectAnalysis, selectedId, project, del
                                   onSubmit={(newName) => renameAnalysis(analysis, newName)}/>
                     </Card.Title>
                     <Card.Text>
+                        <span>n labels: {analysis.splits.length}<br/></span>
                         {Object.keys(analysis.parameters).sort((a, b) => a > b ? 1 : -1)
-                            .map(k => <>{k}: {analysis.parameters[k]}<br/></>)
+                            .map(k => <span key={k}>{k}: {analysis.parameters[k] !== null ? analysis.parameters[k] : "None"}<br/></span>)
                         }
                     </Card.Text>
                     <Button className={"me-1"}

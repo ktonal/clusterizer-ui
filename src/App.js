@@ -18,6 +18,7 @@ import {FiPlus} from "react-icons/fi";
 // import {ExportController} from "./components/stage3-export/ExportController";
 import {Sortable} from "./components/common/Sortable";
 
+
 const AccordionHeader = (({children, eventKey, showForm, setShowForm, secondaryChildren}) => {
     const {activeEventKey} = useContext(AccordionContext);
     const toggleSection = useAccordionButton(eventKey, () => {
@@ -280,7 +281,7 @@ function Clusterizer() {
                         "Export Splits"
                         : `${project.name} > ${analysis.name}`}
                 </h3>
-                <div className={"px-3"} >
+                <div className={"px-3"}>
                     {!showExportSplits && splits !== undefined && splits.length > 0 && token ?
                         <Sortable items={splits}
                                   excludeKeys={["id", "url"]}
@@ -318,9 +319,11 @@ function Clusterizer() {
     )
 }
 
+
 function App() {
     const storedToken = localStorage.getItem("IdToken");
-    const expired = Number.parseInt(localStorage.getItem("IdTokenExpiry")) < (Date.now() / 1000);
+    const expiredStorage = localStorage.getItem("IdTokenExpiry");
+    const expired = expiredStorage === null ? true : Number.parseInt(expiredStorage) < (Date.now() / 1000);
     const [userLoaded, setUserLoaded] = useState(!expired);
     const [token, setToken] = useState(expired ? null : storedToken);
     // const [userLoaded, setUserLoaded] = useState(false);

@@ -12,7 +12,7 @@ export function ProjectController({project, setProject}) {
     useEffect(() => {
         trackPromise(new ClusterizerApi(token).listProjects().then(({data}) => {
             setProjects(data);
-            if (data.length > 0) NotificationManager.info("loaded projects")
+            // if (data.length > 0) NotificationManager.info("loaded projects")
         }).catch(err => errorHandler(err)), "project-list")
     }, [setProject, token]);
 
@@ -28,11 +28,11 @@ export function ProjectController({project, setProject}) {
                     let project = resp.data;
                     let formData = new FormData();
                     formData.append("file", file);
-                    NotificationManager.info("added project");
+                    // NotificationManager.info("added project");
                     trackPromise(
                         new ClusterizerApi(token).createInputFile(project.id, formData)
                             .then((resp) => {
-                                NotificationManager.info("added file to project");
+                                // NotificationManager.info("added file to project");
                                 project.file_info = resp.data;
                                 setProject(project);
                                 setProjects([project, ...projects]);
