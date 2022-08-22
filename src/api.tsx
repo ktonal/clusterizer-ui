@@ -51,13 +51,14 @@ export default class ClusterizerApi {
             {headers: {project_id: projectId}})
     }
 
-    createPreProcessing(projectId, sr, repr, windowSize, hopLength) {
+    createPreProcessing(projectId, sr, repr, windowSize, hopLength, transforms) {
         return this._axios.post("/pre-processing",
             {
                 sample_rate: sr,
                 representation: repr,
                 window_size: windowSize,
-                hop_length: hopLength
+                hop_length: hopLength,
+                transforms: transforms
             }, {headers: {project_id: projectId}},)
     }
 

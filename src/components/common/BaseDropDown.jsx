@@ -7,8 +7,8 @@ export function BaseDropDown({name, items, value, onSelect}) {
     };
     useEffect(() => onSelect(value == null ? items[0] : value), [items, value, onSelect]);
     return (
-        <FloatingLabel label={name} style={{"minWidth": name.length * 12 + "px"}}>
-            <Form.Select onChange={selectWrapper} defaultValue={value}>
+        <FloatingLabel label={name} style={{"minWidth": name.length * 10 + "px"}}>
+            <Form.Select onChange={selectWrapper} value={value}>
                 {items.map((item) => <option key={item} value={item}>{item}</option>)}
             </Form.Select>
         </FloatingLabel>

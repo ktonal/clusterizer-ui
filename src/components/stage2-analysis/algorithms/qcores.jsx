@@ -1,19 +1,24 @@
 import React, {useEffect, useState} from "react";
 import {Col, Form, Row} from "react-bootstrap";
 import FloatingLabel from "react-bootstrap/FloatingLabel";
+import {BaseDropDown} from "../../common/BaseDropDown";
 
 
 export function QCoresForm({setParameters}) {
+    const [metric, setMetric] = useState("cosine");
     const [qCores, setQCores] = useState(.1);
     const [nNeighbors, setNNeighbors] = useState(64);
     const [coreNSize, setCoreNSize] = useState(4);
     useEffect(() => {
         setParameters({
-            cores_prop: qCores, n_neighbors: nNeighbors, core_neighborhood_size: coreNSize,
+            metric: metric, cores_prop: qCores, n_neighbors: nNeighbors, core_neighborhood_size: coreNSize,
         });
-    }, [qCores, nNeighbors, coreNSize, setParameters]);
+    }, [metric, qCores, nNeighbors, coreNSize, setParameters]);
     return (
         <>
+            <Row className="m-3">
+                <BaseDropDown value={metric} items={["cosine", 'euclidean']} onSelect={setMetric} name={'Metric'}/>
+            </Row>
             <Row className="m-3">
                 <Col>
                     <FloatingLabel label={"N Neighbors"}>
@@ -27,8 +32,8 @@ export function QCoresForm({setParameters}) {
                 <Col>
                     <Form.Label>{"Proportion of Core Points: " + qCores}</Form.Label>
                     <Form.Range type={"range"}
-                                min={0.00001}
-                                max={.99999999}
+                                min={0.}
+                                max={1.}
                                 step={0.001}
                                 onChange={(e) => setQCores(Number(e.target.value))}
                                 defaultValue={.1}/>

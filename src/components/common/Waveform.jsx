@@ -63,7 +63,7 @@ function WaveformControls({addSplitToExport, removeSplit, split}) {
     const {token} = useContext(AuthContext);
     return (
         <div className={"add-split-button"}
-             >
+        >
             <Button className={"mx-1 my-2"}
                     variant={"outline-danger"} size={"sm"} type={"button"}
                     onClick={() => {
@@ -416,7 +416,6 @@ export function Waveform(
             <div style={{
                 position: 'absolute', backgroundColor: "rgba(255,192,197,0.3)",
                 height: "178px",
-                // zIndex: -1000,
                 top: 0,
                 left: (selection.selectionStart <= selection.selectionEnd ? selection.selectionStart : selection.selectionEnd + 5) + "px",
                 width: (Math.max(selection.selectionStart, selection.selectionEnd) - 5 - Math.min(selection.selectionStart, selection.selectionEnd)) + "px"

@@ -34,7 +34,7 @@ export function PreProcessingController({preProcessing, project, setPreProcessin
 
     const addPreProcessing = (pp, projectId) => {
         trackPromise(
-            new ClusterizerApi(token).createPreProcessing(projectId, pp.sr, pp.repr, pp.windowSize, pp.hopLength)
+            new ClusterizerApi(token).createPreProcessing(projectId, pp.sr, pp.repr, pp.windowSize, pp.hopLength, pp.transforms)
                 .then((resp) => {
                     NotificationManager.info("added pre-processing");
                     setPps([...pps, resp.data]);
