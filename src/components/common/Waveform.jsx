@@ -100,6 +100,7 @@ export function WaveformContainer(
     }) {
     const [playing, setPlaying] = useState(false);
     const [divWidth, setDivWidth] = useState(-1);
+    const [displayed, setDisplayed] = useState({start: 0, end: 120.});
     const playButton = useRef();
     const {promiseInProgress: bouncingSplit} = usePromiseTracker({area: "bounce-split-" + split.id});
     useEffect(() => {
@@ -119,72 +120,85 @@ export function WaveformContainer(
     }, [divWidth, selectedId, split, playButton]);
     const segments = [];
     if (analysisResult !== undefined) {
-        let thisSegment = {startTime: 0};
+        let thisSegment = {startTime: displayed.start};
         let frameDur = split.duration / analysisResult.length;
         let lastLabel = analysisResult[0];
-        let i = 0;
+        let i = Math.max(0, Number.parseInt((displayed.start / frameDur).toString()));
+        let endFrame = Number.parseInt((displayed.end / frameDur).toString());
         while (i < analysisResult.length) {
             if (analysisResult[i] !== lastLabel && lastLabel === selectedLabel) {
                 thisSegment.endTime = i * frameDur;
                 thisSegment.labelText = `label=${lastLabel.toString()}; frames=${Number.parseInt((thisSegment.startTime / frameDur).toString())}-${i}`;
                 segments.push(thisSegment);
             } else if (analysisResult[i] !== lastLabel && analysisResult[i] === selectedLabel) {
-                thisSegment = {startTime: i * frameDur, endTime: 0, color: 'rgb(224,171,39)'};
+                thisSegment = {startTime: i * frameDur, endTime: 0, color: 'rgb(249,195,40)'};
             }
             lastLabel = analysisResult[i];
             i++;
+            if (i > endFrame) break;
         }
     }
     return (
-        <Card className={"m-2 waveform-container"}
-              border={split.id === selectedId ? "primary" : ""}
-              id={"top" + split.url}
-              onClick={() => {
-                  setSplit(split)
-              }}
-              style={{backgroundColor: 'rgba(249,249,249,0.82)'}}
-        >
-            <div style={{
-                marginLeft: split.url === null ? "0" : "78px", position: "relative",
-            }}
+        <>
+            <Card className={"m-2 waveform-container"}
+                  border={split.id === selectedId ? "primary" : ""}
+                  id={"top" + split.url}
+                  onClick={() => {
+                      setSplit(split)
+                  }}
+                  style={{backgroundColor: 'rgba(249,249,249,0.82)'}}
             >
+                <div style={{
+                    marginLeft: split.url === null ? "0" : "78px", position: "relative",
+                }}
+                >
 
-                {split.url !== null ?
-                    <>
-                        <Button className={"mx-4 play-button"}
-                                variant={"outline-primary"} size={"lg"} type={"button"}
-                                style={{display: "inline-block"}}
-                                onClick={() => setPlaying(!playing)}
-                                id={"play-" + split.url}
-                                ref={playButton}
-                        >
-                            {playing ? <FiPause/> : <FiPlay/>}
-                        </Button>
-                        <Waveform audioURL={split.url} divWidth={divWidth}
-                                  playing={playing} setPlaying={setPlaying}
-                                  playButton={playButton}
-                                  audioName={renameSplit === null ? '' : split.name}
-                                  renameAudio={(newName) => renameSplit(split, newName)}
-                                  segments={segments}
-                        />
-                        <WaveformControls
-                            split={split} addSplitToExport={addSplitToExport} removeSplit={removeSplit}
-                        />
-                    </> :
-                    <>
-                        {bouncingSplit
-                            ? <Spinner animation="border" role="status"
-                                       className={"m-3"}
-                                       style={{width: "100px", height: "100px", margin: "auto auto"}}/>
+                    {split.url !== null ?
+                        <>
+                            <Button className={"mx-4 play-button"}
+                                    variant={"outline-primary"} size={"lg"} type={"button"}
+                                    style={{display: "inline-block"}}
+                                    onClick={() => setPlaying(!playing)}
+                                    id={"play-" + split.url}
+                                    ref={playButton}
+                            >
+                                {playing ? <FiPause/> : <FiPlay/>}
+                            </Button>
+                            <Waveform audioURL={split.url} divWidth={divWidth}
+                                      playing={playing} setPlaying={setPlaying}
+                                      playButton={playButton}
+                                      audioName={renameSplit === null ? '' : split.name}
+                                      renameAudio={(newName) => renameSplit(split, newName)}
+                                      segments={segments}
+                                      setDisplayed={setDisplayed}
+                            />
+                            <WaveformControls
+                                split={split} addSplitToExport={addSplitToExport} removeSplit={removeSplit}
+                            />
+                        </> :
+                        <>
+                            {bouncingSplit
+                                ? <Spinner animation="border" role="status"
+                                           className={"m-3"}
+                                           style={{width: "100px", height: "100px", margin: "auto auto"}}/>
 
-                            : <LabelStat split={split} performSplit={performSplit} removeSplit={removeSplit}
-                                         renameSplit={renameSplit}
-                            />}
+                                : <LabelStat split={split} performSplit={performSplit} removeSplit={removeSplit}
+                                             renameSplit={renameSplit}
+                                />}
 
-                    </>
-                }
-            </div>
-        </Card>)
+                        </>
+                    }
+                </div>
+            </Card>
+            {split.url && (split.duration > 20) &&
+            <div id={"overview" + split.url}
+                 style={{
+                     height: "28px", width: divWidth + "px", position: 'relative',
+                     margin: '4px auto 4px 82px',
+                     border: '1px solid gray'
+                 }}>
+            </div>}
+        </>)
 }
 
 export function Waveform(
@@ -197,6 +211,7 @@ export function Waveform(
         audioName,
         renameAudio,
         segments,
+        setDisplayed,
     }) {
     const {token} = useContext(AuthContext);
     const [peaks, setPeaks] = useState(null);
@@ -212,7 +227,8 @@ export function Waveform(
                 };
             case 'newAudio':
                 const url = action.payload;
-                const containerEl = document.getElementById('overview' + url);
+                const containerEl = document.getElementById('zoomview' + url);
+                const overviewEl = document.getElementById('overview' + url);
                 const audioEl = document.getElementById(url);
                 fetchAudioElementContent(url, audioEl, state.token);
                 const audioContext = new AudioContext();
@@ -222,6 +238,14 @@ export function Waveform(
                         waveformColor: 'rgba(63,94,103,0.8)',
                         playheadColor: '#000000',
                         wheelMode: "scroll"
+                    },
+                    overview: {
+                        container: overviewEl,
+                        waveformColor: 'rgba(63,94,103,0.8)',
+                        playheadColor: '#000000',
+                        showAxisLabels: false,
+                        highlightColor: "rgba(64,94,103,0.51)",
+                        highlightOffset: 0,
                     },
                     zoomLevels: [16],
                     mediaElement: audioEl,
@@ -233,7 +257,7 @@ export function Waveform(
                     segmentStartMarkerColor: '#a0a0a0',
                     segmentEndMarkerColor: '#a0a0a0',
                     randomizeSegmentColor: false,
-                    segmentColor: '#000000',
+                    // segmentColor: '#000000',
                     segments: segments,
                 };
                 if (peaks === null) {
@@ -248,7 +272,10 @@ export function Waveform(
                             multiChannel: false
                         },
                     }, () => {
-                        peaks.views.getView('zoomview').setZoom({seconds: peaks.player.getDuration()});
+                        const dur = Math.min(peaks.player.getDuration(), 120.);
+                        const zoomView = peaks.views.getView("zoomview");
+                        zoomView.setZoom({seconds: dur});
+                        setDisplayed({start: zoomView.getStartTime(), end: zoomView.getEndTime()})
                     });
                 }
                 return {
@@ -266,7 +293,10 @@ export function Waveform(
             case 'newPeak':
                 const view = peaks.views.getView('zoomview');
                 view.showPlayheadTime(true);
-                view.setZoom({seconds: state.audioEl.duration});
+                view.setZoom({seconds: Math.min(state.audioEl.duration, 120.)});
+                if (setDisplayed !== undefined) {
+                    setDisplayed({start: view.getStartTime(), end: view.getEndTime()});
+                }
 
                 peaks.on('zoomview.dblclick', () => {
 
@@ -284,7 +314,8 @@ export function Waveform(
 
                 state.containerEl.addEventListener("dblclick", (event) => {
                     if (event.altKey && event.shiftKey) {
-                        view.setZoom({seconds: peaks.player.getDuration()})
+                        view.setZoom(
+                            {seconds: Math.min(peaks.player.getDuration(), 120.)})
                     } else {
                         state.setPlaying(true);
                         state.playButton.current.click();
@@ -298,22 +329,22 @@ export function Waveform(
 
                     if (event.shiftKey && event.altKey) {
                         // @ts-ignore
-                        const maxScale = zoomview._getScale(peaks.player.getDuration());
+                        const maxScale = zoomview._getScale(Math.min(peaks.player.getDuration(), 120.));
 
                         zoomview.setZoom({
                             // @ts-ignore
                             scale: Math.max(Math.min(zoomview._scale * (event.wheelDelta > 0 ? 1.1 : .9), maxScale), 16),
                         });
+                        setDisplayed({start: zoomview.getStartTime(), end: zoomview.getEndTime()});
                         event.preventDefault();
                     } else {
                         zoomview.setStartTime(
                             // @ts-ignore
                             zoomview.pixelsToTime(zoomview._frameOffset) + event.deltaX / 100
                         );
+                        setDisplayed({start: zoomview.getStartTime(), end: zoomview.getEndTime()});
                     }
                 });
-
-
                 return {...state, peaks: peaks};
             default:
                 return state;
@@ -370,7 +401,7 @@ export function Waveform(
             <span style={{position: "absolute", right: "1em", top: "1em"}}>
                 <Editable value={audioName} onSubmit={(newName) => renameAudio(newName)}/>
             </span>
-            <div id={"overview" + audioURL}
+            <div id={"zoomview" + audioURL}
                  style={{
                      height: "178px", width: divWidth + "px", position: 'relative',
                  }}
